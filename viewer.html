@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>查看报告</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div id="content" class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow">加载中...</div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+        
+        fetch('reports.json')
+            .then(r => r.json())
+            .then(data => {
+                const all = [...data.daily, ...data.weekly, ...data.books];
+                const report = all.find(r => r.id === id);
+                if (report) {
+                    document.getElementById('content').innerHTML = `
+                        <a href="index.html" class="text-blue-500">← 返回列表</a>
+                        <h1 class="text-2xl font-bold mt-4">${report.title}</h1>
+                        <p class="text-gray-500">${report.date}</p>
+                        <hr class="my-4">
+                        <pre class="whitespace-pre-wrap">${report.content}</pre>
+                    `;
+                } else {
+                    document.getElementById('content').innerHTML = '<a href="index.html">← 返回</a><br>报告未找到';
+                }
+            })
+            .catch(e => {
+                document.getElementById('content').innerHTML = '加载失败: ' + e.message;
+            });
+    </script>
+</body>
+</html>
