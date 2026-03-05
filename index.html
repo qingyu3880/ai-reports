@@ -3,204 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 日报中心</title>
+    <title>AI 日报中心 - 音乐 | 电影 | 图书 | AI日报</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Noto Sans SC', sans-serif; }
         .fade-in { animation: fadeIn 0.3s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .loading { display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .markdown-body { line-height: 1.8; }
-        .markdown-body h1 { font-size: 2rem; font-weight: 700; margin: 1.5rem 0 1rem; color: #1f2937; }
-        .markdown-body h2 { font-size: 1.5rem; font-weight: 600; margin: 1.25rem 0 0.75rem; color: #374151; }
-        .markdown-body h3 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #4b5563; }
-        .markdown-body p { margin: 0.75rem 0; color: #4b5563; }
-        .markdown-body ul { list-style-type: disc; margin: 0.75rem 0; padding-left: 1.5rem; }
-        .markdown-body ol { list-style-type: decimal; margin: 0.75rem 0; padding-left: 1.5rem; }
-        .markdown-body blockquote { border-left: 4px solid #e5e7eb; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic; }
-        .markdown-body code { background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.875rem; }
-        .markdown-body pre { background: #1f2937; color: #f9fafb; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 1rem 0; }
-        .markdown-body pre code { background: transparent; color: inherit; padding: 0; }
-        .markdown-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-        .markdown-body th, .markdown-body td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
-        .markdown-body th { background: #f9fafb; font-weight: 600; }
-        .markdown-body a { color: #3b82f6; text-decoration: underline; }
+        .tab-active { border-bottom: 3px solid #3b82f6; color: #3b82f6; }
+        .tab-inactive { border-bottom: 3px solid transparent; color: #6b7280; }
+        .tab-inactive:hover { color: #3b82f6; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <div id="loading" class="loading">
-        <div class="spinner"></div>
+    <div id="app">
+        <div class="flex items-center justify-center h-screen">
+            <div class="text-gray-500">加载中...</div>
+        </div>
     </div>
     
-    <div id="app" style="display:none;"></div>
-    
     <script>
-        let reportsData = { daily: [], weekly: [], books: [] };
-        let currentView = 'list';
-        let selectedReport = null;
+        let reportsData = { daily: [], weekly: [], books: [], music: [], movies: [] };
+        let currentTab = 'daily';
 
         async function loadData() {
             try {
-                const response = await fetch('reports.json?v=' + new Date().getTime());
+                const response = await fetch('reports.json');
                 reportsData = await response.json();
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('app').style.display = 'block';
                 render();
-            } catch (error) {
-                document.getElementById('loading').innerHTML = '<div class="text-red-500">加载失败，请刷新重试</div>';
+            } catch (e) {
+                console.error('加载数据失败:', e);
+                document.getElementById('app').innerHTML = `
+                    <div class="flex items-center justify-center h-screen">
+                        <div class="text-red-500">加载数据失败，请刷新页面重试</div>
+                    </div>
+                `;
             }
         }
 
-        function findReport(id) {
-            const all = [...(reportsData.daily||[]), ...(reportsData.weekly||[]), ...(reportsData.books||[])];
-            return all.find(r => r.id === id);
-        }
-
         function render() {
-            if (currentView === 'list') renderList();
-            else renderDetail();
-        }
-
-        function renderList() {
-            const dailyCount = reportsData.daily?.length || 0;
-            const weeklyCount = reportsData.weekly?.length || 0;
-            const booksCount = reportsData.books?.length || 0;
-            const totalCount = dailyCount + weeklyCount + booksCount;
-            
             const app = document.getElementById('app');
+            const total = reportsData.daily.length + reportsData.weekly.length + 
+                         reportsData.books.length + reportsData.music.length + reportsData.movies.length;
+            
+            const tabs = [
+                { id: 'daily', name: '📰 AI日报', count: reportsData.daily.length },
+                { id: 'weekly', name: '✈️ 航空周报', count: reportsData.weekly.length },
+                { id: 'books', name: '📚 图书推荐', count: reportsData.books.length },
+                { id: 'music', name: '🎵 音乐推荐', count: reportsData.music.length },
+                { id: 'movies', name: '🎬 电影推荐', count: reportsData.movies.length },
+            ];
+            
+            const currentData = reportsData[currentTab] || [];
+            
             app.innerHTML = `
                 <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
                     <div class="max-w-7xl mx-auto px-4 py-12">
                         <h1 class="text-5xl font-bold mb-4">📊 AI 日报中心</h1>
-                        <p class="text-blue-100 text-xl">点击报告查看完整内容</p>
+                        <p class="text-blue-100 text-xl">汇聚全球AI动态，洞察技术趋势 | 音乐 · 电影 · 图书 · 日报</p>
                     </div>
                 </header>
 
                 <main class="max-w-7xl mx-auto px-4 py-10">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        <div class="bg-white rounded-xl shadow p-6 border-l-4 border-blue-500">
-                            <div class="text-3xl font-bold text-gray-800">${totalCount}</div>
-                            <div class="text-gray-500 text-sm">总报告数</div>
+                    <!-- 统计卡片 -->
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
+                        <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-500">
+                            <div class="text-3xl font-bold text-gray-800">${total}</div>
+                            <div class="text-gray-500 mt-1 text-sm">总报告数</div>
                         </div>
-                        <div class="bg-white rounded-xl shadow p-6 border-l-4 border-green-500">
-                            <div class="text-3xl font-bold text-gray-800">${dailyCount}</div>
-                            <div class="text-gray-500 text-sm">AI日报</div>
+                        <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-green-500">
+                            <div class="text-3xl font-bold text-gray-800">${reportsData.daily.length}</div>
+                            <div class="text-gray-500 mt-1 text-sm">AI日报</div>
                         </div>
-                        <div class="bg-white rounded-xl shadow p-6 border-l-4 border-purple-500">
-                            <div class="text-3xl font-bold text-gray-800">${weeklyCount}</div>
-                            <div class="text-gray-500 text-sm">周报</div>
+                        <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-purple-500">
+                            <div class="text-3xl font-bold text-gray-800">${reportsData.books.length}</div>
+                            <div class="text-gray-500 mt-1 text-sm">图书推荐</div>
                         </div>
-                        <div class="bg-white rounded-xl shadow p-6 border-l-4 border-orange-500">
-                            <div class="text-3xl font-bold text-gray-800">${booksCount}</div>
-                            <div class="text-gray-500 text-sm">图书</div>
+                        <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-pink-500">
+                            <div class="text-3xl font-bold text-gray-800">${reportsData.music.length}</div>
+                            <div class="text-gray-500 mt-1 text-sm">音乐推荐</div>
                         </div>
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow p-6 mb-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">📰 AI日报 (${dailyCount}篇)</h2>
-                        <div class="space-y-4">
-                            ${reportsData.daily?.map(r => `
-                                <div onclick="showDetail('${r.id}')" class="border-b border-gray-100 pb-4 last:border-0 cursor-pointer hover:bg-gray-50 p-4 rounded-lg transition">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <h3 class="text-lg font-semibold text-blue-700 hover:underline">${r.title}</h3>
-                                        <span class="text-sm text-gray-400">${r.date}</span>
-                                    </div>
-                                    <p class="text-gray-600 line-clamp-3">${r.summary}</p>
-                                    <div class="mt-2 text-sm text-green-600">点击查看完整内容 →</div>
-                                </div>
-                            `).join('') || '<div class="text-gray-500">暂无数据</div>'}
+                        <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-orange-500">
+                            <div class="text-3xl font-bold text-gray-800">${reportsData.movies.length}</div>
+                            <div class="text-gray-500 mt-1 text-sm">电影推荐</div>
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow p-6 mb-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">📊 行业周报 (${weeklyCount}篇)</h2>
-                        <div class="space-y-4">
-                            ${reportsData.weekly?.map(r => `
-                                <div onclick="showDetail('${r.id}')" class="border-b border-gray-100 pb-4 last:border-0 cursor-pointer hover:bg-gray-50 p-4 rounded-lg transition">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <h3 class="text-lg font-semibold text-purple-700 hover:underline">${r.title}</h3>
-                                        <span class="text-sm text-gray-400">${r.date}</span>
-                                    </div>
-                                    <p class="text-gray-600 line-clamp-3">${r.summary}</p>
-                                    <div class="mt-2 text-sm text-purple-600">点击查看完整内容 →</div>
-                                </div>
-                            `).join('') || '<div class="text-gray-500">暂无数据</div>'}
+                    <!-- 标签页 -->
+                    <div class="bg-white rounded-t-2xl shadow-md border-b border-gray-200">
+                        <div class="flex overflow-x-auto">
+                            ${tabs.map(tab => `
+                                <button onclick="switchTab('${tab.id}')" 
+                                    class="px-6 py-4 font-medium whitespace-nowrap transition-colors ${currentTab === tab.id ? 'tab-active' : 'tab-inactive'}">
+                                    ${tab.name}
+                                    <span class="ml-2 bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">${tab.count}</span>
+                                </button>
+                            `).join('')}
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow p-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">📚 图书推荐 (${booksCount}篇)</h2>
-                        <div class="space-y-4">
-                            ${reportsData.books?.map(r => `
-                                <div onclick="showDetail('${r.id}')" class="border-b border-gray-100 pb-4 last:border-0 cursor-pointer hover:bg-gray-50 p-4 rounded-lg transition">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <h3 class="text-lg font-semibold text-orange-700 hover:underline">${r.title}</h3>
-                                        <span class="text-sm text-gray-400">${r.date}</span>
+                    <!-- 内容区域 -->
+                    <div class="bg-white rounded-b-2xl shadow-md p-8 min-h-[400px]">
+                        ${currentData.length === 0 ? `
+                            <div class="text-center text-gray-400 py-20">
+                                <div class="text-6xl mb-4">📭</div>
+                                <div>暂无内容</div>
+                            </div>
+                        ` : `
+                            <div class="space-y-6">
+                                ${currentData.map(r => `
+                                    <div class="border-b border-gray-100 pb-6 last:border-0 fade-in">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h3 class="text-xl font-semibold text-gray-800">${r.title}</h3>
+                                            <span class="text-sm text-gray-400 bg-gray-100 px-3 py-1 rounded-full">${r.date}</span>
+                                        </div>
+                                        <p class="text-gray-600 leading-relaxed">${r.summary}</p>
+                                        <button onclick="showDetail('${r.id}')" class="mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                            查看详情 →
+                                        </button>
                                     </div>
-                                    <p class="text-gray-600 line-clamp-3">${r.summary}</p>
-                                    <div class="mt-2 text-sm text-orange-600">点击查看完整内容 →</div>
-                                </div>
-                            `).join('') || '<div class="text-gray-500">暂无数据</div>'}
-                        </div>
+                                `).join('')}
+                            </div>
+                        `}
                     </div>
                 </main>
+
+                <!-- 详情弹窗 -->
+                <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
+                    <div class="min-h-screen px-4 text-center">
+                        <div class="fixed inset-0 transition-opacity" onclick="closeModal()"></div>
+                        <span class="inline-block h-screen align-middle" aria-hidden="true">&#8203;</span>
+                        <div class="inline-block w-full max-w-4xl p-6 my-8 text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl relative">
+                            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                            <div id="modalContent" class="prose max-w-none"></div>
+                        </div>
+                    </div>
+                </div>
             `;
         }
 
-        function renderDetail() {
-            const report = findReport(selectedReport);
-            if (!report) {
-                showList();
-                return;
+        function switchTab(tab) {
+            currentTab = tab;
+            render();
+        }
+
+        function showDetail(id) {
+            let item = null;
+            for (const category of ['daily', 'weekly', 'books', 'music', 'movies']) {
+                item = reportsData[category].find(r => r.id === id);
+                if (item) break;
             }
-
-            // 简单的Markdown转HTML
-            let content = report.content || '';
-            content = content
-                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-                .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-                .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-                .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>')
-                .replace(/^\> (.*$)/gm, '<blockquote>$1</blockquote>')
-                .replace(/\n/g, '<br>');
-
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
-                    <div class="max-w-7xl mx-auto px-4 py-8">
-                        <button onclick="showList()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition mb-4">← 返回列表</button>
-                        <h1 class="text-3xl font-bold">${report.title}</h1>
-                        <div class="mt-2 text-blue-200">${report.date} | ${report.category}</div>
-                    </div>
-                </header>
-                <main class="max-w-4xl mx-auto px-4 py-8">
-                    <div class="bg-white rounded-xl shadow-md p-8 markdown-body">
-                        ${content}
-                    </div>
-                </main>
-            `;
-            window.scrollTo(0, 0);
+            
+            if (item && item.content) {
+                document.getElementById('modalContent').innerHTML = `
+                    <h1 class="text-3xl font-bold mb-4">${item.title}</h1>
+                    <div class="text-gray-500 mb-6">${item.date} · ${item.category}</div>
+                    <div class="prose max-w-none">${item.content.replace(/\n/g, '<br>')}</div>
+                `;
+                document.getElementById('detailModal').classList.remove('hidden');
+            }
         }
 
-        function showList() { 
-            currentView = 'list'; 
-            selectedReport = null;
-            render(); 
-        }
-        
-        function showDetail(id) { 
-            currentView = 'detail'; 
-            selectedReport = id; 
-            render(); 
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
         }
 
+        // 加载数据
         loadData();
     </script>
 </body>
